@@ -384,7 +384,38 @@ pte_t *
 pgdir_walk(pde_t *pgdir, const void *va, int create)
 {
 	// Fill this function in
-	return NULL;
+  uint32_t page_dir_idx = PDX(va);
+  uint32_t page_table_idx = PTX(va);
+
+  pde_t* ptr_page_dir_entry;
+  pte_t* ptr_page_table_entry;
+
+  struct PageInfo* ptr_page;
+
+  ptr_page_dir_entry = &pgdir[page_dir_idx];
+
+  if(*ptr_page_dir_entry & PTE_P)
+  {
+    ptr_page_table_entry = (KADDR(PTE_ADDR(*ptr_page_dir_entry)));
+  }
+  else
+  {
+    if(create == 0)
+    {
+      return NULL;
+    }
+
+    if( (ptr_page = page_alloc(ALLOC_ZERO)) == NULL)
+    {
+      return NULL;
+    }
+
+    ptr_page_table_entry = (pte_t*)page2kva(ptr_page);
+    ptr_page->pp_ref++;
+    *ptr_page_dir_entry = PADDR(ptr_page_table_entry) | (PTE_P | PTE_W | PTE_U);
+  }
+
+	return &ptr_page_table_entry[page_table_idx];
 }
 
 //
@@ -433,6 +464,29 @@ int
 page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm)
 {
 	// Fill this function in
+	pte_t *pte = pgdir_walk(pgdir, va, 1);
+
+	if (!pte) {
+
+		return -E_NO_MEM;
+	}
+
+	if (*pte & PTE_P) {
+		if (PTE_ADDR(*pte) == page2pa(pp)) {
+
+			// 插入的是同一个页面，只需要修改权限等即可
+			pp->pp_ref--;
+		}
+		else {
+
+			page_remove(pgdir, va);
+		}
+
+	}
+
+	pp->pp_ref++;
+	*pte = page2pa(pp)| perm | PTE_P;
+
 	return 0;
 }
 
@@ -451,6 +505,23 @@ struct PageInfo *
 page_lookup(pde_t *pgdir, void *va, pte_t **pte_store)
 {
 	// Fill this function in
+  // find the address of page table item for va
+  pte_t* pte = pgdir_walk(pgdir, va, 0);
+
+  if(pte == NULL)
+  {
+    return NULL;
+  }
+
+  if(pte_store != NULL)
+  {
+    *pte_store = pte;
+  }
+
+  if(*pte & PTE_P)
+  {
+    return (pa2page(PTE_ADDR(*pte)));
+  }
 	return NULL;
 }
 
@@ -473,6 +544,20 @@ void
 page_remove(pde_t *pgdir, void *va)
 {
 	// Fill this function in
+  // 	// Fill this function in
+	// 二级指针有点晕
+	pte_t *pte;
+	pte_t **pte_store = &pte;
+
+	struct PageInfo *pi = page_lookup(pgdir, va, pte_store);
+	if (!pi) {
+		return ;
+	}
+
+	page_decref(pi);     // 减引用
+
+	**pte_store = 0;     // 取消映射
+	tlb_invalidate(pgdir, va);
 }
 
 //
@@ -656,7 +741,14 @@ check_kern_pgdir(void)
 	// check pages array
 	n = ROUNDUP(npages*sizeof(struct PageInfo), PGSIZE);
 	for (i = 0; i < n; i += PGSIZE)
+  {
+    physaddr_t tmp_phaddr = check_va2pa(pgdir, UPAGES + i); 
+    physaddr_t tmp_paphaddr = PADDR(pages) + i;
+    warn("\npp: %p, page2pa(pp): %p", tmp_phaddr, tmp_paphaddr);
 		assert(check_va2pa(pgdir, UPAGES + i) == PADDR(pages) + i);
+
+  }
+  
 
 
 	// check phys mem
