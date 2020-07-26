@@ -157,6 +157,8 @@ mem_init(void)
 	//////////////////////////////////////////////////////////////////////
 	// Make 'envs' point to an array of size 'NENV' of 'struct Env'.
 	// LAB 3: Your code here.
+  envs = (struct Env*)boot_alloc(NENV * sizeof(struct Env));
+  memset(envs, 0, NENV * sizeof(struct Env));
 
 	//////////////////////////////////////////////////////////////////////
 	// Now that we've allocated the initial kernel data structures, we set
@@ -193,6 +195,11 @@ mem_init(void)
 	//    - the new image at UENVS  -- kernel R, user R
 	//    - envs itself -- kernel RW, user NONE
 	// LAB 3: Your code here.
+  boot_map_region(kern_pgdir,
+                  UENVS,
+                  ROUNDUP(sizeof(struct Env) * NENV, PGSIZE),
+                  PADDR(envs),
+                  PTE_U | PTE_P);
 
 	//////////////////////////////////////////////////////////////////////
 	// Use the physical memory that 'bootstack' refers to as the kernel
@@ -210,7 +217,7 @@ mem_init(void)
                   KSTKSIZE,
                   PADDR(bootstack),
                   PTE_W);
-  warn("bootstack: %p", bootstack);
+  //warn("bootstack: %p", bootstack);
 
 	//////////////////////////////////////////////////////////////////////
 	// Map all of physical memory at KERNBASE.
@@ -642,6 +649,18 @@ int
 user_mem_check(struct Env *env, const void *va, size_t len, int perm)
 {
 	// LAB 3: Your code here.
+  uint32_t start = (uint32_t)ROUNDDOWN((char *)va, PGSIZE);
+  uint32_t end = (uint32_t)ROUNDUP((char *)va+len, PGSIZE);
+  for(; start < end; start += PGSIZE)
+  {
+    pte_t *pte = pgdir_walk(env->env_pgdir, (void*)start, 0);
+    if((start >= ULIM) || (pte == NULL) || !(*pte & PTE_P) || ((*pte & perm) != perm))
+    {
+      user_mem_check_addr = (start < (uint32_t)va ? (uint32_t)va : start);
+      return -E_FAULT;
+    }
+  }
+	return 0;
 
 	return 0;
 }
@@ -676,7 +695,7 @@ check_page_free_list(bool only_low_memory)
 {
 	struct PageInfo *pp;
 	unsigned pdx_limit = only_low_memory ? 1 : NPDENTRIES;
-  warn("pdx_limix: %u", pdx_limit);
+  //warn("pdx_limix: %u", pdx_limit);
 	int nfree_basemem = 0, nfree_extmem = 0;
 	char *first_free_page;
 
