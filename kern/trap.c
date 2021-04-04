@@ -202,7 +202,7 @@ trap_dispatch(struct Trapframe *tf)
                     tf->tf_regs.reg_edi,
                     tf->tf_regs.reg_esi
                     );
-      ret = tf->tf_regs.reg_eax;
+      tf->tf_regs.reg_eax = ret;
       break;
     default:
 	// Unexpected trap: The user process or the kernel has a bug.
