@@ -286,7 +286,16 @@ mem_init_mp(void)
 	//     Permissions: kernel RW, user NONE
 	//
 	// LAB 4: Your code here:
-
+  int i = 0;
+  for(i = 0; i < NCPU; ++i)
+  {
+    boot_map_region(kern_pgdir,
+                    KSTACKTOP - KSTKSIZE - i * (KSTKSIZE + KSTKGAP),
+                    KSTKSIZE,
+                    PADDR(percpu_kstacks[i]),
+                    PTE_W
+          );
+  }
 }
 
 // --------------------------------------------------------------
@@ -336,7 +345,25 @@ page_init(void)
   pages[0].pp_link = NULL;
 
   page_free_list = NULL;
-  for (i = 1; i < npages_basemem; ++i)
+
+  for (i = 1; i < MPENTRY_PADDR/PGSIZE; ++i)
+  {
+    pages[i].pp_ref = 0;
+    pages[i].pp_link = page_free_list;
+    page_free_list = &pages[i];
+  }
+
+  extern unsigned char mpentry_start[], mpentry_end[];
+  size_t cnt = mpentry_end - mpentry_start;
+  cnt = ROUNDUP(cnt, PGSIZE);
+
+  for (; i < (MPENTRY_PADDR+cnt)/PGSIZE; ++i)
+  {
+    pages[i].pp_ref = 1;
+    pages[i].pp_link = NULL;
+  }
+
+  for (; i < npages_basemem; ++i)
   {
     pages[i].pp_ref = 0;
     pages[i].pp_link = page_free_list;
@@ -696,7 +723,22 @@ mmio_map_region(physaddr_t pa, size_t size)
 	// Hint: The staff solution uses boot_map_region.
 	//
 	// Your code here:
-	panic("mmio_map_region not implemented");
+  if((base + size) > MMIOLIM)
+  {
+    panic("mmio exceed limi");
+  }
+  size = ROUNDUP(size, PGSIZE);
+  pa   = ROUNDDOWN(pa, PGSIZE);
+
+  boot_map_region(kern_pgdir,
+                  base,
+                  size,
+                  pa,
+                  PTE_PCD | PTE_PWT | PTE_W
+        );
+
+  base += size;
+  return (void*)(base-size);
 }
 
 static uintptr_t user_mem_check_addr;
