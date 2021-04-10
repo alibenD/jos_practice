@@ -145,6 +145,15 @@ static int
 sys_env_set_pgfault_upcall(envid_t envid, void *func)
 {
 	// LAB 4: Your code here.
+  struct Env* env;
+  int ret = envid2env(envid, &env, 1);
+  if(ret)
+  {
+    return ret;
+  }
+
+  env->env_pgfault_upcall = func;
+  return 0;
 	panic("sys_env_set_pgfault_upcall not implemented");
 }
 
@@ -404,6 +413,8 @@ case SYS_page_unmap:
   return sys_page_unmap(a1, (void*)a2);
 case SYS_env_set_status:
   return sys_env_set_status(a1, a2);
+case SYS_env_set_pgfault_upcall:
+  return sys_env_set_pgfault_upcall(a1, (void*)a2);
 	default:
 		return -E_INVAL;
 	}
