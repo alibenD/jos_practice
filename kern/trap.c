@@ -94,6 +94,13 @@ trap_init(void)
   void handler_simderr();
   void handler_syscall();
 
+  void handler_timer();
+  void handler_keyboard();
+  void handler_serial();
+  void handler_spurious();
+  void handler_ide();
+  void handler_error();
+
   SETGATE(idt[T_DIVIDE], 0, GD_KT, handler_divide, 0);
   SETGATE(idt[T_DEBUG], 0, GD_KT, handler_debug, 0);
   //SETGATE(idt[T_NMI], 0, GD_KT, handler_nmi, 0);
@@ -113,7 +120,9 @@ trap_init(void)
   //SETGATE(idt[T_ALIGN], 0, GD_KT, handler_align, 0);
   //SETGATE(idt[T_MCHK], 0, GD_KT, handler_mchk, 0);
   //SETGATE(idt[T_SIMDERR], 0, GD_KT, handler_simderr, 0);
-  SETGATE(idt[T_SYSCALL], 1, GD_KT, handler_syscall, 3);
+  SETGATE(idt[T_SYSCALL], 0, GD_KT, handler_syscall, 3);
+
+  SETGATE(idt[IRQ_OFFSET+IRQ_TIMER], 0, GD_KT, handler_timer, 0);
 
 	// Per-CPU setup 
 	trap_init_percpu();
@@ -248,6 +257,10 @@ trap_dispatch(struct Trapframe *tf)
                     );
       tf->tf_regs.reg_eax = ret;
       break;
+    case (IRQ_OFFSET + IRQ_TIMER):
+      lapic_eoi();
+      sched_yield();
+      break;
     default:
 	// Unexpected trap: The user process or the kernel has a bug.
 	print_trapframe(tf);
@@ -284,6 +297,11 @@ trap(struct Trapframe *tf)
 	// Check that interrupts are disabled.  If this assertion
 	// fails, DO NOT be tempted to fix it by inserting a "cli" in
 	// the interrupt path.
+
+  //if((read_eflags() & FL_IF))
+  //{
+  //print_trapframe(tf);
+  //}
 	assert(!(read_eflags() & FL_IF));
 
 	if ((tf->tf_cs & 3) == 3) {
