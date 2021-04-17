@@ -214,6 +214,25 @@ serve_read(envid_t envid, union Fsipc *ipc)
 		cprintf("serve_read %08x %08x %08x\n", envid, req->req_fileid, req->req_n);
 
 	// Lab 5: Your code here:
+  struct OpenFile* o;
+  int r = openfile_lookup(envid, req->req_fileid, &o);
+  cprintf("open: %d\n", r);
+
+  if( r < 0 )
+  {
+    return r;
+  }
+
+  //r = file_read(o->o_file, ret->ret_buf, MIN(req->req_n, sizeof ret->ret_buf), o->o_fd->fd_offset);
+  r = file_read(o->o_file, ret->ret_buf, req->req_n, o->o_fd->fd_offset);
+  cprintf("lookup ok, read:%d\n", r);
+  if( r < 0 )
+  {
+    return r;
+  }
+
+  o->o_fd->fd_offset += r;
+  return r;
 	return 0;
 }
 
@@ -229,6 +248,31 @@ serve_write(envid_t envid, struct Fsreq_write *req)
 		cprintf("serve_write %08x %08x %08x\n", envid, req->req_fileid, req->req_n);
 
 	// LAB 5: Your code here.
+  struct OpenFile* o;
+  int r = openfile_lookup(envid, req->req_fileid, &o);
+  if( r < 0 )
+  {
+    return r;
+  }
+  
+  int total = 0;
+  while(1)
+  {
+    r = file_write(o->o_file, req->req_buf, req->req_n, o->o_fd->fd_offset);
+    if (r < 0)
+    {
+      return r;
+    }
+
+    total += r;
+    o->o_fd->fd_offset += r;
+    if(req->req_n <= total)
+    {
+      break;
+    }
+  }
+
+  return total;
 	panic("serve_write not implemented");
 }
 

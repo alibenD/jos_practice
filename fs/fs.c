@@ -22,7 +22,7 @@ check_super(void)
 
 // --------------------------------------------------------------
 // Free block bitmap
-// --------------------------------------------------------------
+// -----------d---------------------------------------------------
 
 // Check to see if the block bitmap indicates that block 'blockno' is free.
 // Return 1 if the block is free, 0 if not.
@@ -171,6 +171,7 @@ file_block_walk(struct File *f, uint32_t filebno, uint32_t **ppdiskbno, bool all
           {
             return bn;
           }
+          memset(diskaddr(bn), 0, BLKSIZE);
           flush_block(diskaddr(bn));
           f->f_indirect = bn;
           uint32_t* indirect = diskaddr(f->f_indirect);
@@ -200,6 +201,10 @@ file_get_block(struct File *f, uint32_t filebno, char **blk)
        // LAB 5: Your code here.
   uint32_t* ppdiskbno;
   int r;
+  //if(filebno >= NDIRECT + NINDIRECT)
+  //{
+  //  return -E_INVAL;
+  //}
   if( (r = file_block_walk(f, filebno, &ppdiskbno, 1)) < 0 )
   {
     return r;
@@ -213,6 +218,7 @@ file_get_block(struct File *f, uint32_t filebno, char **blk)
   {
     int bn = alloc_block();
     if(bn < 0) return bn;
+    memset(diskaddr(bn), 0, BLKSIZE);
     flush_block(diskaddr(bn));
     *ppdiskbno = bn;
     *blk = diskaddr(bn);
