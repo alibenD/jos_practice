@@ -60,9 +60,20 @@ alloc_block(void)
 	// The bitmap consists of one or more blocks.  A single bitmap block
 	// contains the in-use bits for BLKBITSIZE blocks.  There are
 	// super->s_nblocks blocks in the disk altogether.
+  uint32_t blockno;
+
+  for(blockno = 0; blockno < super->s_nblocks; blockno++)
+  {
+    if(block_is_free(blockno))
+    {
+      bitmap[blockno/32] &= ~(1 << (blockno % 32));
+      flush_block(&bitmap[blockno/32]);
+      return blockno;
+    }
+  }
 
 	// LAB 5: Your code here.
-	panic("alloc_block not implemented");
+	//panic("alloc_block not implemented");
 	return -E_NO_DISK;
 }
 
@@ -135,6 +146,47 @@ static int
 file_block_walk(struct File *f, uint32_t filebno, uint32_t **ppdiskbno, bool alloc)
 {
        // LAB 5: Your code here.
+    if(filebno >= NDIRECT + NINDIRECT)
+    {
+      return -E_INVAL;
+    }
+
+    if(filebno >= NDIRECT)
+    {
+      if(f->f_indirect)
+      {
+        uint32_t* indirect = diskaddr(f->f_indirect);
+        *ppdiskbno = &(indirect[filebno-NDIRECT]);
+      }
+      else
+      {
+        if(alloc == 0)
+        {
+          return -E_NOT_FOUND;
+        }
+        else
+        {
+          int bn = alloc_block();
+          if(bn < 0)
+          {
+            return bn;
+          }
+          f->f_indirect = bn;
+          uint32_t* indirect = diskaddr(f->f_indirect);
+          *ppdiskbno = &(indirect[filebno-NDIRECT]);
+          memset(diskaddr(bn), 0, BLKSIZE);
+          flush_block(diskaddr(bn));
+        }
+      }
+    }
+    else
+    {
+      if(ppdiskbno)
+      {
+        *ppdiskbno = &(f->f_direct[filebno]);
+      }
+    }
+    return 0;
        panic("file_block_walk not implemented");
 }
 
@@ -150,6 +202,31 @@ int
 file_get_block(struct File *f, uint32_t filebno, char **blk)
 {
        // LAB 5: Your code here.
+  uint32_t* ppdiskbno;
+  int r;
+  //if(filebno >= NDIRECT + NINDIRECT)
+  //{
+  //  return -E_INVAL;
+  //}
+  if( (r = file_block_walk(f, filebno, &ppdiskbno, 1)) < 0 )
+  {
+    return r;
+  }
+
+  if(*ppdiskbno)
+  {
+    *blk = diskaddr(*ppdiskbno);
+  }
+  else
+  {
+    int bn = alloc_block();
+    if(bn < 0) return bn;
+    memset(diskaddr(bn), 0, BLKSIZE);
+    flush_block(diskaddr(bn));
+    *ppdiskbno = bn;
+    *blk = diskaddr(bn);
+  }
+  return 0;
        panic("file_get_block not implemented");
 }
 
