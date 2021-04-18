@@ -216,7 +216,6 @@ serve_read(envid_t envid, union Fsipc *ipc)
 	// Lab 5: Your code here:
   struct OpenFile* o;
   int r = openfile_lookup(envid, req->req_fileid, &o);
-  cprintf("open: %d\n", r);
 
   if( r < 0 )
   {
@@ -225,7 +224,6 @@ serve_read(envid_t envid, union Fsipc *ipc)
 
   //r = file_read(o->o_file, ret->ret_buf, MIN(req->req_n, sizeof ret->ret_buf), o->o_fd->fd_offset);
   r = file_read(o->o_file, ret->ret_buf, req->req_n, o->o_fd->fd_offset);
-  cprintf("lookup ok, read:%d\n", r);
   if( r < 0 )
   {
     return r;
