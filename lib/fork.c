@@ -74,25 +74,35 @@ static int
 duppage(envid_t envid, unsigned pn)
 {
 	int r;
+  int cur_env_id = sys_getenvid();
 
 	// LAB 4: Your code here.
 
   void* addr = (void*)(pn*PGSIZE);
-  if( (uvpt[pn] & PTE_W) || (uvpt[pn] & PTE_COW) )
+  if( (uvpt[pn] & (PTE_W | PTE_COW)) && !(uvpt[pn] & PTE_SHARE) )
   {
-    if(sys_page_map(0, addr, envid, addr, PTE_COW|PTE_U|PTE_P) < 0)
+    r = sys_page_map(cur_env_id, addr, envid, addr, PTE_COW|PTE_U|PTE_P);
+    if(r < 0)
     {
+      return r;
       panic("cow at child");
     }
 
-    if(sys_page_map(0, addr, 0, addr, PTE_COW|PTE_U|PTE_P) < 0)
+    r = sys_page_map(cur_env_id, addr, cur_env_id, addr, PTE_COW|PTE_U|PTE_P);
+    if(r < 0)
     {
+      return r;
       panic("cow at parent");
     }
   }
   else
   {
-    sys_page_map(0, addr, envid, addr, PTE_P|PTE_P);
+    int perm = uvpt[pn] & PTE_SHARE ? uvpt[pn] & PTE_SYSCALL : PTE_P|PTE_U;
+    r = sys_page_map(cur_env_id, addr, envid, addr, PTE_P|PTE_P);
+    if(r < 0)
+    {
+      return r;
+    }
   }
   return 0;
 	panic("duppage not implemented");

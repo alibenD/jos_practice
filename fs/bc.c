@@ -49,7 +49,12 @@ bc_pgfault(struct UTrapframe *utf)
 	//
 	// LAB 5: you code here:
   addr = ROUNDDOWN(addr, PGSIZE);
-  sys_page_alloc(0, addr, PTE_W|PTE_U|PTE_P);
+  r = sys_page_alloc(0, addr, PTE_W|PTE_U|PTE_P);
+  if(r < 0)
+  {
+    panic("in bc_pgfault, sys_page_alloc: %e", r);
+  }
+
   r = ide_read(blockno * BLKSECTS, addr, BLKSECTS);
   if(r < 0)
   {

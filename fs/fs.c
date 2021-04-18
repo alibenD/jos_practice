@@ -22,7 +22,7 @@ check_super(void)
 
 // --------------------------------------------------------------
 // Free block bitmap
-// -----------d---------------------------------------------------
+// --------------------------------------------------------------
 
 // Check to see if the block bitmap indicates that block 'blockno' is free.
 // Return 1 if the block is free, 0 if not.
@@ -66,8 +66,8 @@ alloc_block(void)
   {
     if(block_is_free(blockno))
     {
-      bitmap[blockno/32] ^= 1 << (blockno % 32);
-      flush_block(diskaddr(2+blockno/32/NINDIRECT));
+      bitmap[blockno/32] &= ~(1 << (blockno % 32));
+      flush_block(&bitmap[blockno/32]);
       return blockno;
     }
   }
@@ -171,17 +171,20 @@ file_block_walk(struct File *f, uint32_t filebno, uint32_t **ppdiskbno, bool all
           {
             return bn;
           }
-          memset(diskaddr(bn), 0, BLKSIZE);
-          flush_block(diskaddr(bn));
           f->f_indirect = bn;
           uint32_t* indirect = diskaddr(f->f_indirect);
           *ppdiskbno = &(indirect[filebno-NDIRECT]);
+          memset(diskaddr(bn), 0, BLKSIZE);
+          flush_block(diskaddr(bn));
         }
       }
     }
     else
     {
-      *ppdiskbno = &(f->f_direct[filebno]);
+      if(ppdiskbno)
+      {
+        *ppdiskbno = &(f->f_direct[filebno]);
+      }
     }
     return 0;
        panic("file_block_walk not implemented");

@@ -142,16 +142,19 @@ sys_env_set_trapframe(envid_t envid, struct Trapframe *tf)
 	// LAB 5: Your code here.
 	// Remember to check whether the user has supplied us with a good
 	// address!
+  int r;
   struct Env* e;
-  if(envid2env(envid, &e, 1) < 0)
+  if((r = envid2env(envid, &e, 1)) < 0)
   {
-    return -E_BAD_ENV;
+    return r;
   }
 
-  tf->tf_eflags = FL_IF;
-  tf->tf_eflags &= ~FL_IOPL_MASK;
-  tf->tf_cs = GD_UT | 3;
+  user_mem_assert(e, tf, sizeof(struct Trapframe), PTE_U);
+
   e->env_tf = *tf;
+  e->env_tf.tf_cs = GD_UT | 0x03;
+  e->env_tf.tf_eflags |= FL_IF;
+  e->env_tf.tf_eflags &= ~FL_IOPL_MASK;
   return 0;
 	panic("sys_env_set_trapframe not implemented");
 }
@@ -497,8 +500,7 @@ case SYS_yield:
 case SYS_exofork:
   return sys_exofork();
 case SYS_page_alloc:
-  return sys_page_alloc(a1, (void*)a2, a3);
-case SYS_page_map:
+  return sys_page_alloc(a1, (void*)a2, a3); case SYS_page_map:
   return sys_page_map(a1, (void*)a2, a3, (void*)a4, a5);
 case SYS_page_unmap:
   return sys_page_unmap(a1, (void*)a2);
